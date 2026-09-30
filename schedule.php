@@ -1,4 +1,3 @@
-```php
 <?php
 
 /* =========================================================
@@ -1435,49 +1434,3 @@ View Schedule Display
 mysqli_close($conn);
 
 ?>
-```
-
-### What I changed
-
-The main change is these three safe functions:
-
-```text
-html_date()
-html_time()
-display_datetime()
-```
-
-They first check:
-
-```php
-if ($value === NULL || $value === "") {
-    return "";
-}
-```
-
-and only then call:
-
-```php
-strtotime($value)
-```
-
-So if Period 2 or Period 3 has no schedule, PHP will **not** call `strtotime(NULL)`.
-
-For example:
-
-```text
-Period 1
-30-09-2026 09:32
-to
-02-10-2026 18:00
-
-Period 2
-(empty)
-
-Period 3
-(empty)
-```
-
-will now display correctly without the **Deprecated** warning and without `01-01-1970 05:30`.
-
-You can replace your present `schedule.php` with the above version.
