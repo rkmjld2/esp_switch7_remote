@@ -2,7 +2,7 @@
 
 /* =========================================================
    ESP-SWITCH7
-   SCHEDULE DISPLAY
+   DISPLAY TODAY'S SCHEDULE ONLY
    Render + TiDB Cloud
    ========================================================= */
 
@@ -11,6 +11,7 @@ date_default_timezone_set("Asia/Kolkata");
 
 /* =========================================================
    DATABASE SETTINGS
+   Read from Render Environment Variables
    ========================================================= */
 
 $host     = getenv("DB_HOST");
@@ -21,7 +22,7 @@ $port     = getenv("DB_PORT");
 
 
 /* =========================================================
-   TiDB CLOUD SSL CONNECTION
+   CONNECT TO TiDB CLOUD
    ========================================================= */
 
 $conn = mysqli_init();
@@ -58,21 +59,92 @@ if (mysqli_connect_errno()) {
 
 
 /* =========================================================
-   CURRENT INDIA TIME
+   INDIA TIME
    ========================================================= */
 
-$current_time =
-    date("Y-m-d H:i:s");
+$current_time = date("Y-m-d H:i:s");
 
-$current_display =
-    date("d-m-Y H:i:s");
+$current_display = date(
+    "d-m-Y H:i:s"
+);
 
-$today_day =
-    date("l");
+$today_day = date("l");
 
 
 /* =========================================================
-   CHECK ACTIVE STATUS
+   GET TODAY'S SCHEDULE ONLY
+   ========================================================= */
+
+$today_day_safe = mysqli_real_escape_string(
+    $conn,
+    $today_day
+);
+
+
+$sql = "
+    SELECT *
+    FROM weekly_schedule
+    WHERE day_week = '$today_day_safe'
+    LIMIT 1
+";
+
+
+$result = mysqli_query(
+    $conn,
+    $sql
+);
+
+
+$row = false;
+
+
+if ($result) {
+
+    $row = mysqli_fetch_assoc(
+        $result
+    );
+
+}
+
+
+/* =========================================================
+   FUNCTION
+   DISPLAY DATE AND TIME
+   ========================================================= */
+
+function display_datetime($value)
+{
+    if (
+        $value === NULL ||
+        $value === "" ||
+        $value == "0000-00-00 00:00:00"
+    ) {
+
+        return "";
+
+    }
+
+
+    $timestamp = strtotime($value);
+
+
+    if ($timestamp === false) {
+
+        return "";
+
+    }
+
+
+    return date(
+        "d-m-Y H:i",
+        $timestamp
+    );
+}
+
+
+/* =========================================================
+   FUNCTION
+   CHECK ACTIVE / INACTIVE
    ========================================================= */
 
 function check_status(
@@ -102,6 +174,17 @@ function check_status(
 
 
     if (
+        $start_timestamp === false ||
+        $end_timestamp === false ||
+        $current_timestamp === false
+    ) {
+
+        return "INACTIVE";
+
+    }
+
+
+    if (
         $current_timestamp >= $start_timestamp &&
         $current_timestamp <= $end_timestamp
     ) {
@@ -116,20 +199,90 @@ function check_status(
 
 
 /* =========================================================
-   GET ALL SCHEDULES
+   PERIOD DATA
    ========================================================= */
 
-$sql = "
-SELECT *
-FROM weekly_schedule
-ORDER BY id
-";
+$periods = array();
 
 
-$result = mysqli_query(
-    $conn,
-    $sql
-);
+if ($row) {
+
+
+    /* -----------------------------------------------------
+       PERIOD 1
+       ----------------------------------------------------- */
+
+    $periods[1] = array(
+
+        "start" =>
+            $row["start_time_1"],
+
+        "end" =>
+            $row["end_time_1"],
+
+        "pins" =>
+            $row["pins_output_1"],
+
+        "status" =>
+            check_status(
+                $row["start_time_1"],
+                $row["end_time_1"],
+                $current_time
+            )
+
+    );
+
+
+    /* -----------------------------------------------------
+       PERIOD 2
+       ----------------------------------------------------- */
+
+    $periods[2] = array(
+
+        "start" =>
+            $row["start_time_2"],
+
+        "end" =>
+            $row["end_time_2"],
+
+        "pins" =>
+            $row["pins_output_2"],
+
+        "status" =>
+            check_status(
+                $row["start_time_2"],
+                $row["end_time_2"],
+                $current_time
+            )
+
+    );
+
+
+    /* -----------------------------------------------------
+       PERIOD 3
+       ----------------------------------------------------- */
+
+    $periods[3] = array(
+
+        "start" =>
+            $row["start_time_3"],
+
+        "end" =>
+            $row["end_time_3"],
+
+        "pins" =>
+            $row["pins_output_3"],
+
+        "status" =>
+            check_status(
+                $row["start_time_3"],
+                $row["end_time_3"],
+                $current_time
+            )
+
+    );
+
+}
 
 ?>
 
@@ -146,16 +299,20 @@ $result = mysqli_query(
     content="width=device-width, initial-scale=1.0"
 >
 
-<title>ESP-SWITCH7 Schedule Display</title>
+<title>ESP-SWITCH7 Schedule</title>
 
 
 <style>
+
+/* =========================================================
+   BODY
+   ========================================================= */
 
 body {
 
     font-family: Arial, sans-serif;
 
-    background: #eeeeee;
+    background-color: #f2f2f2;
 
     margin: 0;
 
@@ -164,158 +321,184 @@ body {
 }
 
 
+/* =========================================================
+   HEADING
+   ========================================================= */
+
 h1 {
 
     text-align: center;
 
-}
-
-
-.schedule-container {
-
-    max-width: 1000px;
-
-    margin: auto;
+    color: #333;
 
 }
 
 
-.current-box {
+/* =========================================================
+   CURRENT TIME
+   ========================================================= */
 
-    background: white;
+.current-time {
+
+    width: 500px;
+
+    max-width: 90%;
+
+    margin: 20px auto;
+
+    padding: 15px;
+
+    background-color: #222;
+
+    color: white;
+
+    text-align: center;
+
+    font-size: 22px;
+
+    font-weight: bold;
 
     border-radius: 10px;
 
-    padding: 15px;
+}
+
+
+/* =========================================================
+   TODAY
+   ========================================================= */
+
+.today {
 
     text-align: center;
 
     font-size: 20px;
 
-    margin-bottom: 20px;
-
-    box-shadow: 0 2px 8px #aaa;
-
-}
-
-
-.menu {
-
-    text-align: center;
+    font-weight: bold;
 
     margin-bottom: 20px;
 
 }
 
 
-.menu a {
-
-    background: #333;
-
-    color: white;
-
-    text-decoration: none;
-
-    padding: 10px 18px;
-
-    border-radius: 5px;
-
-}
-
+/* =========================================================
+   PERIOD BOX
+   ========================================================= */
 
 .period {
 
-    border-radius: 12px;
+    width: 700px;
+
+    max-width: 95%;
+
+    margin: 20px auto;
 
     padding: 20px;
 
-    margin-bottom: 20px;
-
-    color: white;
+    border-radius: 12px;
 
     cursor: pointer;
 
-    box-shadow: 0 3px 8px #999;
+    box-sizing: border-box;
 
 }
 
 
-.period1 {
+/* =========================================================
+   PERIOD COLORS
+   ========================================================= */
 
-    background: #1976d2;
+.period-1 {
 
-}
+    background-color: #dbeafe;
 
-
-.period2 {
-
-    background: #2e7d32;
-
-}
-
-
-.period3 {
-
-    background: #ef6c00;
+    border: 3px solid #2563eb;
 
 }
 
 
-.period.inactive {
+.period-2 {
 
-    opacity: 0.55;
+    background-color: #dcfce7;
+
+    border: 3px solid #16a34a;
+
+}
+
+
+.period-3 {
+
+    background-color: #ffedd5;
+
+    border: 3px solid #ea580c;
 
 }
 
 
-.period.active {
-
-    opacity: 1;
-
-    border: 5px solid yellow;
-
-}
-
+/* =========================================================
+   PERIOD TITLE
+   ========================================================= */
 
 .period-title {
-
-    font-size: 25px;
-
-    font-weight: bold;
-
-}
-
-
-.datetime {
-
-    font-size: 18px;
-
-    margin-top: 10px;
-
-}
-
-
-.status {
 
     font-size: 24px;
 
     font-weight: bold;
 
+    margin-bottom: 15px;
+
+}
+
+
+/* =========================================================
+   DATE TIME
+   ========================================================= */
+
+.date-time {
+
+    font-size: 18px;
+
+    line-height: 1.8;
+
+}
+
+
+/* =========================================================
+   STATUS
+   ========================================================= */
+
+.active {
+
+    color: green;
+
+    font-size: 22px;
+
+    font-weight: bold;
+
+}
+
+
+.inactive {
+
+    color: red;
+
+    font-size: 22px;
+
+    font-weight: bold;
+
+}
+
+
+/* =========================================================
+   PIN AREA
+   ========================================================= */
+
+.pins-title {
+
     margin-top: 15px;
 
-}
+    font-size: 18px;
 
-
-.active-status {
-
-    color: yellow;
-
-}
-
-
-.inactive-status {
-
-    color: white;
+    font-weight: bold;
 
 }
 
@@ -328,44 +511,61 @@ h1 {
 
     gap: 8px;
 
-    margin-top: 15px;
+    margin-top: 10px;
 
 }
 
 
 .pin {
 
-    background: white;
+    width: 55px;
 
-    color: #333;
+    height: 40px;
 
-    border-radius: 5px;
+    display: flex;
 
-    padding: 8px 12px;
+    align-items: center;
+
+    justify-content: center;
+
+    border-radius: 6px;
 
     font-weight: bold;
 
 }
 
 
-.pin.selected {
+.pin-selected {
 
-    background: #00c853;
+    background-color: green;
 
     color: white;
 
 }
 
 
+.pin-not-selected {
+
+    background-color: #cccccc;
+
+    color: #333333;
+
+}
+
+
+/* =========================================================
+   NO SCHEDULE
+   ========================================================= */
+
 .no-schedule {
 
-    background: white;
+    text-align: center;
 
-    padding: 20px;
+    background-color: white;
+
+    padding: 30px;
 
     border-radius: 10px;
-
-    text-align: center;
 
     font-size: 20px;
 
@@ -377,33 +577,25 @@ h1 {
 <script>
 
 /* =========================================================
-   REFRESH EVERY SECOND
+   REFRESH PAGE EVERY 1 SECOND
    ========================================================= */
 
-setTimeout(
-    function() {
+setTimeout(function() {
 
-        location.reload();
+    location.reload();
 
-    },
-    1000
-);
+}, 1000);
 
 
 /* =========================================================
    PERIOD CLICK
    ========================================================= */
 
-function periodClicked(
-    period,
-    id
-) {
+function periodClicked(period)
+{
 
     alert(
-        "Period " +
-        period +
-        "\nSchedule ID: " +
-        id
+        "You clicked " + period
     );
 
 }
@@ -417,100 +609,105 @@ function periodClicked(
 
 
 <h1>
+
 ESP-SWITCH7 Schedule
+
 </h1>
 
 
-<div class="menu">
+<!-- =====================================================
+     CURRENT INDIA TIME
+     ===================================================== -->
 
-<a href="schedule.php">
-Edit Schedule
-</a>
+<div class="current-time">
 
-</div>
+    Current India Time:
 
+    <br>
 
-<div class="current-box">
+    <?php
 
-<b>
-Current India Time
-</b>
+    echo htmlspecialchars(
+        $current_display
+    );
 
-<br>
-
-<?php
-
-echo $current_display;
-
-?>
-
-<br>
-
-<b>
-Today:
-</b>
-
-<?php
-
-echo $today_day;
-
-?>
+    ?>
 
 </div>
 
 
-<div class="schedule-container">
+<!-- =====================================================
+     TODAY
+     ===================================================== -->
+
+<div class="today">
+
+    Today:
+
+    <?php
+
+    echo htmlspecialchars(
+        $today_day
+    );
+
+    ?>
+
+</div>
 
 
 <?php
 
-$found_schedule = false;
+/* =========================================================
+   NO SCHEDULE FOR TODAY
+   ========================================================= */
+
+if (!$row) {
+
+?>
+
+<div class="no-schedule">
+
+    No schedule found for today.
+
+</div>
+
+<?php
+
+}
 
 
 /* =========================================================
-   READ ALL DATABASE ROWS
+   DISPLAY TODAY'S THREE PERIODS
    ========================================================= */
 
-while (
-    $row =
-    mysqli_fetch_assoc($result)
-) {
+if ($row) {
 
-
-    /* =====================================================
-       THREE PERIODS
-       ===================================================== */
 
     for (
-        $period_number = 1;
-        $period_number <= 3;
-        $period_number++
+        $p = 1;
+        $p <= 3;
+        $p++
     ) {
 
 
         $start =
-            $row[
-                "start_time_" .
-                $period_number
-            ];
+            $periods[$p]["start"];
 
 
         $end =
-            $row[
-                "end_time_" .
-                $period_number
-            ];
+            $periods[$p]["end"];
 
 
         $pins =
-            $row[
-                "pins_output_" .
-                $period_number
-            ];
+            $periods[$p]["pins"];
+
+
+        $status =
+            $periods[$p]["status"];
 
 
         /* -------------------------------------------------
-           EMPTY PERIOD
+           DO NOT DISPLAY EMPTY PERIOD
            ------------------------------------------------- */
 
         if (
@@ -523,28 +720,16 @@ while (
         }
 
 
-        $found_schedule = true;
-
-
         /* -------------------------------------------------
-           ACTIVE / INACTIVE
+           STATUS CLASS
            ------------------------------------------------- */
 
-        $status =
-            check_status(
-                $start,
-                $end,
-                $current_time
-            );
-
-
-        if ($status == "ACTIVE") {
+        if (
+            $status == "ACTIVE"
+        ) {
 
             $status_class =
                 "active";
-
-            $status_text_class =
-                "active-status";
 
         }
         else {
@@ -552,198 +737,208 @@ while (
             $status_class =
                 "inactive";
 
-            $status_text_class =
-                "inactive-status";
-
-        }
-
-
-        $period_class =
-            "period" .
-            $period_number;
-
-
-        /* -------------------------------------------------
-           PIN ARRAY
-           ------------------------------------------------- */
-
-        $pin_array = array();
-
-
-        if (!empty($pins)) {
-
-            $pin_array =
-                explode(
-                    ",",
-                    $pins
-                );
-
         }
 
 ?>
 
+<!-- =====================================================
+     PERIOD BOX
+     ===================================================== -->
+
 <div
-    class="period
-           <?php echo $period_class; ?>
-           <?php echo $status_class; ?>"
+    class="period period-<?php echo $p; ?>"
     onclick="
         periodClicked(
-            <?php
-                echo $period_number;
-            ?>,
-            <?php
-                echo $row["id"];
-            ?>
+            'Period <?php echo $p; ?>'
         )
     "
 >
 
 
-<div class="period-title">
+    <div class="period-title">
 
-Period
-<?php echo $period_number; ?>
+        Period <?php echo $p; ?>
 
-</div>
+    </div>
 
 
-<div>
+    <!-- START -->
 
-<b>Day:</b>
+    <div class="date-time">
+
+        <b>Start:</b>
+
+        <?php
+
+        echo htmlspecialchars(
+            display_datetime($start)
+        );
+
+        ?>
+
+    </div>
+
+
+    <!-- END -->
+
+    <div class="date-time">
+
+        <b>End:</b>
+
+        <?php
+
+        echo htmlspecialchars(
+            display_datetime($end)
+        );
+
+        ?>
+
+    </div>
+
+
+    <!-- STATUS -->
+
+    <div
+        class="<?php echo $status_class; ?>"
+    >
+
+        Status:
+
+        <?php
+
+        echo htmlspecialchars(
+            $status
+        );
+
+        ?>
+
+    </div>
+
+
+    <!-- PINS -->
+
+    <div class="pins-title">
+
+        Output Pins:
+
+    </div>
+
+
+    <div class="pins">
+
 
 <?php
 
-echo htmlspecialchars(
-    $row["day_week"]
-);
 
-?>
+        /* -------------------------------------------------
+           CHECK D1 TO D8
+           ------------------------------------------------- */
 
-</div>
-
-
-<div class="datetime">
-
-<b>Start:</b>
-
-<?php
-
-echo date(
-    "d-m-Y H:i:s",
-    strtotime($start)
-);
-
-?>
-
-
-<br>
-
-
-<b>End:</b>
-
-<?php
-
-echo date(
-    "d-m-Y H:i:s",
-    strtotime($end)
-);
-
-?>
-
-</div>
-
-
-<div
-    class="status
-           <?php
-               echo $status_text_class;
-           ?>"
->
-
-<?php
-
-echo $status;
-
-?>
-
-</div>
-
-
-<div class="pins">
-
-
-<?php
-
-for (
-    $pin_number = 1;
-    $pin_number <= 8;
-    $pin_number++
-) {
-
-
-    $pin_name =
-        "D" . $pin_number;
-
-
-    $selected = false;
-
-
-    foreach (
-        $pin_array as $saved_pin
-    ) {
-
-        if (
-            trim($saved_pin)
-            == $pin_name
+        for (
+            $i = 1;
+            $i <= 8;
+            $i++
         ) {
 
-            $selected = true;
+
+            $pin =
+                "D" . $i;
+
+
+            /* -------------------------------------------------
+               Check selected pin
+               ------------------------------------------------- */
+
+            $selected = false;
+
+
+            if (
+                !empty($pins)
+            ) {
+
+
+                /*
+                 * Convert the stored pin list
+                 * to uppercase.
+                 */
+
+                $pin_list =
+                    strtoupper($pins);
+
+
+                /*
+                 * Split:
+                 *
+                 * D1,D2,D3
+                 *
+                 * into:
+                 *
+                 * D1
+                 * D2
+                 * D3
+                 */
+
+                $pin_array =
+                    array_map(
+                        "trim",
+                        explode(
+                            ",",
+                            $pin_list
+                        )
+                    );
+
+
+                if (
+                    in_array(
+                        $pin,
+                        $pin_array
+                    )
+                ) {
+
+                    $selected = true;
+
+                }
+
+            }
+
+
+            /* -------------------------------------------------
+               DISPLAY PIN
+               ------------------------------------------------- */
+
+            if ($selected) {
+
+                echo '
+
+                <div
+                    class="pin pin-selected"
+                >
+                    ' . $pin . ' ✓
+                </div>
+
+                ';
+
+            }
+            else {
+
+                echo '
+
+                <div
+                    class="pin pin-not-selected"
+                >
+                    ' . $pin . '
+                </div>
+
+                ';
+
+            }
 
         }
 
-    }
-
 ?>
 
 
-<div
-    class="pin
-    <?php
-
-    if ($selected) {
-
-        echo "selected";
-
-    }
-
-    ?>"
->
-
-
-<?php
-
-if ($selected) {
-
-    echo "✓ ";
-
-}
-
-echo $pin_name;
-
-?>
-
-</div>
-
-
-<?php
-
-}
-
-?>
-
-
-</div>
-
+    </div>
 
 </div>
 
@@ -754,29 +949,7 @@ echo $pin_name;
 
 }
 
-
-/* =========================================================
-   NO SCHEDULE
-   ========================================================= */
-
-if (!$found_schedule) {
-
 ?>
-
-<div class="no-schedule">
-
-No working schedule is currently configured.
-
-</div>
-
-<?php
-
-}
-
-?>
-
-
-</div>
 
 
 </body>
