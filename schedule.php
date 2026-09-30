@@ -1,3 +1,4 @@
+```php
 <?php
 
 /* =========================================================
@@ -73,6 +74,84 @@ function make_datetime($date, $time)
     }
 
     return $date . " " . $time . ":00";
+}
+
+
+/* =========================================================
+   FUNCTIONS FOR HTML DATE/TIME
+   IMPORTANT:
+   Safely handle NULL / empty database values
+   ========================================================= */
+
+function html_date($value)
+{
+    if (
+        $value === NULL ||
+        $value === ""
+    ) {
+        return "";
+    }
+
+    $timestamp = strtotime($value);
+
+    if ($timestamp === false) {
+        return "";
+    }
+
+    return date(
+        "Y-m-d",
+        $timestamp
+    );
+}
+
+
+function html_time($value)
+{
+    if (
+        $value === NULL ||
+        $value === ""
+    ) {
+        return "";
+    }
+
+    $timestamp = strtotime($value);
+
+    if ($timestamp === false) {
+        return "";
+    }
+
+    return date(
+        "H:i",
+        $timestamp
+    );
+}
+
+
+/* =========================================================
+   FUNCTION
+   DISPLAY DATETIME SAFELY
+   Used in Saved Schedules table
+   ========================================================= */
+
+function display_datetime($value)
+{
+    if (
+        $value === NULL ||
+        $value === ""
+    ) {
+        return "";
+    }
+
+    $timestamp = strtotime($value);
+
+    if ($timestamp === false) {
+        return "";
+    }
+
+    return date(
+        "d-m-Y H:i",
+        $timestamp
+    );
 }
 
 
@@ -429,36 +508,6 @@ if (isset($_GET["edit"])) {
 
     }
 
-}
-
-
-/* =========================================================
-   FUNCTIONS FOR HTML DATE/TIME
-   ========================================================= */
-
-function html_date($value)
-{
-    if (empty($value)) {
-        return "";
-    }
-
-    return date(
-        "Y-m-d",
-        strtotime($value)
-    );
-}
-
-
-function html_time($value)
-{
-    if (empty($value)) {
-        return "";
-    }
-
-    return date(
-        "H:i",
-        strtotime($value)
-    );
 }
 
 
@@ -1144,6 +1193,8 @@ echo htmlspecialchars(
 </td>
 
 
+<!-- PERIOD 1 -->
+
 <td>
 
 <?php
@@ -1154,21 +1205,32 @@ if (
     )
 ) {
 
-    echo date(
-        "d-m-Y H:i",
-        strtotime(
+    echo htmlspecialchars(
+        display_datetime(
             $schedule["start_time_1"]
         )
     );
 
     echo "<br>to<br>";
 
-    echo date(
-        "d-m-Y H:i",
-        strtotime(
+    if (
+        !empty(
             $schedule["end_time_1"]
         )
-    );
+    ) {
+
+        echo htmlspecialchars(
+            display_datetime(
+                $schedule["end_time_1"]
+            )
+        );
+
+    }
+    else {
+
+        echo "-";
+
+    }
 
 }
 
@@ -1190,6 +1252,8 @@ echo htmlspecialchars(
 </td>
 
 
+<!-- PERIOD 2 -->
+
 <td>
 
 <?php
@@ -1200,21 +1264,32 @@ if (
     )
 ) {
 
-    echo date(
-        "d-m-Y H:i",
-        strtotime(
+    echo htmlspecialchars(
+        display_datetime(
             $schedule["start_time_2"]
         )
     );
 
     echo "<br>to<br>";
 
-    echo date(
-        "d-m-Y H:i",
-        strtotime(
+    if (
+        !empty(
             $schedule["end_time_2"]
         )
-    );
+    ) {
+
+        echo htmlspecialchars(
+            display_datetime(
+                $schedule["end_time_2"]
+            )
+        );
+
+    }
+    else {
+
+        echo "-";
+
+    }
 
 }
 
@@ -1236,6 +1311,8 @@ echo htmlspecialchars(
 </td>
 
 
+<!-- PERIOD 3 -->
+
 <td>
 
 <?php
@@ -1246,21 +1323,32 @@ if (
     )
 ) {
 
-    echo date(
-        "d-m-Y H:i",
-        strtotime(
+    echo htmlspecialchars(
+        display_datetime(
             $schedule["start_time_3"]
         )
     );
 
     echo "<br>to<br>";
 
-    echo date(
-        "d-m-Y H:i",
-        strtotime(
+    if (
+        !empty(
             $schedule["end_time_3"]
         )
-    );
+    ) {
+
+        echo htmlspecialchars(
+            display_datetime(
+                $schedule["end_time_3"]
+            )
+        );
+
+    }
+    else {
+
+        echo "-";
+
+    }
 
 }
 
@@ -1281,6 +1369,8 @@ echo htmlspecialchars(
 
 </td>
 
+
+<!-- ACTION -->
 
 <td>
 
@@ -1345,3 +1435,49 @@ View Schedule Display
 mysqli_close($conn);
 
 ?>
+```
+
+### What I changed
+
+The main change is these three safe functions:
+
+```text
+html_date()
+html_time()
+display_datetime()
+```
+
+They first check:
+
+```php
+if ($value === NULL || $value === "") {
+    return "";
+}
+```
+
+and only then call:
+
+```php
+strtotime($value)
+```
+
+So if Period 2 or Period 3 has no schedule, PHP will **not** call `strtotime(NULL)`.
+
+For example:
+
+```text
+Period 1
+30-09-2026 09:32
+to
+02-10-2026 18:00
+
+Period 2
+(empty)
+
+Period 3
+(empty)
+```
+
+will now display correctly without the **Deprecated** warning and without `01-01-1970 05:30`.
+
+You can replace your present `schedule.php` with the above version.
